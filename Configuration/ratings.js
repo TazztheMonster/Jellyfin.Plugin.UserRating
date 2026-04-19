@@ -238,8 +238,24 @@
             align-items: center;
             gap: 0.35em;
         }
-        .rating-item-stars .rating-stars-textual {
-            letter-spacing: 0.08em;
+        .rating-item-stars .rating-stars-visual {
+            display: inline-flex;
+            gap: 0.2em;
+        }
+        .rating-item-stars .star {
+            position: relative;
+            display: inline-flex;
+            color: rgba(255, 255, 255, 0.18);
+            overflow: hidden;
+        }
+        .rating-item-stars .star::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--fill-width, 0%);
+            overflow: hidden;
+            color: #ffd700;
         }
         .rating-item-date {
             font-size: 0.85em;
@@ -299,15 +315,6 @@
         }
 
         return html;
-    }
-
-
-    function renderRatingTextStars(rating) {
-        const normalizedRating = normalizeRating(rating);
-        const fullStars = Math.floor(normalizedRating);
-        const hasHalfStar = normalizedRating % 1 >= 0.5;
-        const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-        return '★'.repeat(fullStars) + (hasHalfStar ? '⯨' : '') + '☆'.repeat(emptyStars);
     }
 
 
@@ -798,7 +805,7 @@
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
             const ratingValue = clampRatingToSetting(rating.rating || rating.Rating || 0);
-            stars.innerHTML = `<span class="rating-stars-textual">${renderRatingTextStars(ratingValue)}</span> <span class="rating-item-value">${formatRatingLabel(ratingValue)}/5</span>`;
+            stars.innerHTML = `<span class="rating-stars-visual">${renderRatingStars(ratingValue)}</span> <span class="rating-item-value">${formatRatingLabel(ratingValue)}/5</span>`;
             leftSide.appendChild(stars);
             
             header.appendChild(leftSide);
