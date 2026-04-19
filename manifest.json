@@ -9,10 +9,10 @@
     "imageUrl": "https://raw.githubusercontent.com/TazztheMonster/Jellyfin.Plugin.UserRating/test-feed/icon.png",
     "versions": [
       {
-        "version": "1.7.33.4",
+        "version": "1.7.33.6",
         "changelog": "Test build with half-star ratings and toggle support",
         "targetAbi": "10.9.0.0",
-        "sourceUrl": "https://github.com/TazztheMonster/Jellyfin.Plugin.UserRating/releases/download/v1.7.33-test.5/Jellyfin.Plugin.UserRatings.zip",
+        "sourceUrl": "https://github.com/TazztheMonster/Jellyfin.Plugin.UserRating/releases/download/v1.7.33-test.7/Jellyfin.Plugin.UserRatings.zip",
         "checksum": "b724fbe99ec0a0513bedbcd8c66b5127",
         "timestamp": "2026-04-19T21:43:54Z"
       }
