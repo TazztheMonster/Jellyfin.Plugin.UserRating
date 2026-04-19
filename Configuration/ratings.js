@@ -237,6 +237,9 @@
 
     let currentItemId = null;
     let currentRating = 0;
+    let allowHalfStars = true;
+    let configLoaded = false;
+    let configLoadingPromise = null;
     let isInjecting = false; // Flag to prevent concurrent injections
     let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
     let isNavigating = false; // Flag to prevent refresh during navigation
@@ -278,6 +281,39 @@
         return html;
     }
 
+
+    function clampRatingToSetting(rating) {
+        const normalizedRating = normalizeRating(rating);
+        return allowHalfStars ? normalizedRating : Math.round(normalizedRating);
+    }
+
+    async function ensureConfigLoaded() {
+        if (configLoaded) {
+            return;
+        }
+
+        if (!configLoadingPromise) {
+            const configUrl = ApiClient.getUrl('web/ConfigurationPage?name=config.json');
+            configLoadingPromise = fetch(configUrl, {
+                headers: {
+                    'X-Emby-Token': ApiClient.accessToken()
+                }
+            })
+                .then(response => response.ok ? response.json() : { enableHalfStarRatings: true })
+                .then(config => {
+                    allowHalfStars = config.enableHalfStarRatings !== false;
+                    configLoaded = true;
+                })
+                .catch(error => {
+                    console.warn('[UserRatings] Failed to load config, defaulting to half stars enabled', error);
+                    allowHalfStars = true;
+                    configLoaded = true;
+                });
+        }
+
+        await configLoadingPromise;
+    }
+
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
         container.className = 'star-rating';
@@ -293,13 +329,13 @@
                 star.addEventListener('mousemove', (event) => {
                     const rect = star.getBoundingClientRect();
                     const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
-                    const hoverRating = (i - 1) + (isLeftHalf ? 0.5 : 1);
-                    onHover(hoverRating);
+                    const hoverRating = allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i;
+                    onHover(clampRatingToSetting(hoverRating));
                 });
                 star.addEventListener('click', (event) => {
                     const rect = star.getBoundingClientRect();
                     const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
-                    currentSelectedRating = (i - 1) + (isLeftHalf ? 0.5 : 1);
+                    currentSelectedRating = clampRatingToSetting(allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i);
                     onClick(currentSelectedRating);
                 });
             }
@@ -360,10 +396,12 @@
 
     async function saveRating(itemId, rating, note) {
         try {
+            await ensureConfigLoaded();
+            const adjustedRating = clampRatingToSetting(rating);
             const userId = ApiClient.getCurrentUserId();
             const user = await ApiClient.getCurrentUser();
             const userName = user ? user.Name : 'Unknown';
-            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
+            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${adjustedRating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -431,6 +469,8 @@
 
     async function createRatingsUI(itemId) {
         console.log('[UserRatings] → createRatingsUI started for:', itemId);
+        await ensureConfigLoaded();
+
         const container = document.createElement('div');
         container.className = 'user-ratings-container';
         container.id = 'user-ratings-ui';
@@ -484,7 +524,7 @@
                 ratingValueLabel.textContent = normalizedRating === 0 ? '' : `${formatRatingLabel(normalizedRating)}/5`;
             },
             (rating) => {
-                currentRating = normalizeRating(rating);
+                currentRating = clampRatingToSetting(rating);
                 updateStarDisplay(starContainer, currentRating);
                 ratingPrompt.style.display = currentRating === 0 ? 'inline' : 'none';
                 ratingValueLabel.style.display = currentRating === 0 ? 'none' : 'inline';
@@ -621,7 +661,7 @@
         const myRating = await loadMyRating(itemId);
         console.log('[UserRatings] → My rating loaded:', myRating);
         if (myRating && myRating.rating) {
-            currentRating = normalizeRating(myRating.rating);
+            currentRating = clampRatingToSetting(myRating.rating);
             updateStarDisplay(starContainer, currentRating);
             ratingPrompt.style.display = 'none';
             ratingValueLabel.style.display = 'inline';
@@ -703,7 +743,7 @@
             
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
-            const ratingValue = normalizeRating(rating.rating || rating.Rating || 0);
+            const ratingValue = clampRatingToSetting(rating.rating || rating.Rating || 0);
             stars.innerHTML = `${renderRatingStars(ratingValue)} <span class="rating-item-value">${formatRatingLabel(ratingValue)}/5</span>`;
             leftSide.appendChild(stars);
             

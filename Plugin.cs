@@ -84,6 +84,11 @@ namespace Jellyfin.Plugin.UserRatings
                 {
                     Name = "ratings.js",
                     EmbeddedResourcePath = GetType().Namespace + ".Configuration.ratings.js"
+                },
+                new PluginPageInfo
+                {
+                    Name = "config.json",
+                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.json"
                 }
             };
         }
