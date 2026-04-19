@@ -87,6 +87,20 @@
             width: var(--fill-width, 0%);
             overflow: hidden;
             color: #ffd700;
+            pointer-events: none;
+        }
+        .star-rating .star .star-hitbox {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            z-index: 2;
+        }
+        .star-rating .star .star-hitbox-left {
+            left: 0;
+        }
+        .star-rating .star .star-hitbox-right {
+            right: 0;
         }
         .star-rating .star.filled,
         .star-rating .star.half-filled {
@@ -326,18 +340,43 @@
             star.dataset.star = i;
 
             if (interactive) {
+                const getHoverRating = (isLeftHalf) => clampRatingToSetting(allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i);
+
                 star.addEventListener('mousemove', (event) => {
                     const rect = star.getBoundingClientRect();
-                    const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
-                    const hoverRating = allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i;
-                    onHover(clampRatingToSetting(hoverRating));
+                    const relativeX = event.clientX - rect.left;
+                    const isLeftHalf = relativeX <= (rect.width / 2);
+                    onHover(getHoverRating(isLeftHalf));
                 });
+
                 star.addEventListener('click', (event) => {
                     const rect = star.getBoundingClientRect();
-                    const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
-                    currentSelectedRating = clampRatingToSetting(allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i);
+                    const relativeX = event.clientX - rect.left;
+                    const isLeftHalf = relativeX <= (rect.width / 2);
+                    currentSelectedRating = getHoverRating(isLeftHalf);
                     onClick(currentSelectedRating);
                 });
+
+                const leftHitbox = document.createElement('span');
+                leftHitbox.className = 'star-hitbox star-hitbox-left';
+                leftHitbox.addEventListener('mouseenter', () => onHover(getHoverRating(true)));
+                leftHitbox.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    currentSelectedRating = getHoverRating(true);
+                    onClick(currentSelectedRating);
+                });
+
+                const rightHitbox = document.createElement('span');
+                rightHitbox.className = 'star-hitbox star-hitbox-right';
+                rightHitbox.addEventListener('mouseenter', () => onHover(getHoverRating(false)));
+                rightHitbox.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    currentSelectedRating = getHoverRating(false);
+                    onClick(currentSelectedRating);
+                });
+
+                star.appendChild(leftHitbox);
+                star.appendChild(rightHitbox);
             }
 
             container.appendChild(star);

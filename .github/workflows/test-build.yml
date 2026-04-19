@@ -23,8 +23,8 @@ jobs:
       - name: Set test version
         id: version
         run: |
-          VERSION=1.7.33.2
-          TAG=v1.7.33-test.3
+          VERSION=1.7.33.3
+          TAG=v1.7.33-test.4
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
