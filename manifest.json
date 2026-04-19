@@ -13,8 +13,8 @@
         "changelog": "Test build with half-star ratings and toggle support",
         "targetAbi": "10.9.0.0",
         "sourceUrl": "https://github.com/TazztheMonster/Jellyfin.Plugin.UserRating/releases/download/v1.7.33-test.6/Jellyfin.Plugin.UserRatings.zip",
-        "checksum": "a4e3e1c42b9e172937bbabfef4215c64",
-        "timestamp": "2026-04-19T21:01:58Z"
+        "checksum": "4b34976ef39c3d29c9466c79b4693897",
+        "timestamp": "2026-04-19T21:48:23Z"
       }
     ]
   }
