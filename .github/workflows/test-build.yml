@@ -3,8 +3,6 @@ name: Test Build and Package
 on:
   workflow_dispatch:
   push:
-    branches:
-      - test-feed
 
 permissions:
   contents: write
