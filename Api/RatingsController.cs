@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Mime;
+using Jellyfin.Plugin.UserRatings.Configuration;
 using Jellyfin.Plugin.UserRatings.Data;
 using Jellyfin.Plugin.UserRatings.Models;
 using MediaBrowser.Common.Configuration;
@@ -13,10 +14,12 @@ namespace Jellyfin.Plugin.UserRatings.Api
     public class RatingsController : ControllerBase
     {
         private readonly RatingRepository _repository;
+        private readonly PluginConfiguration _configuration;
 
         public RatingsController(IApplicationPaths appPaths)
         {
             _repository = new RatingRepository(appPaths);
+            _configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         }
 
         [HttpPost("Rate")]
@@ -25,16 +28,23 @@ namespace Jellyfin.Plugin.UserRatings.Api
         {
             try
             {
-                if (rating < 1 || rating > 5 || (rating * 2) % 1 != 0)
+                var normalizedRating = Math.Round(rating * 2, MidpointRounding.AwayFromZero) / 2;
+
+                if (normalizedRating < 1 || normalizedRating > 5 || Math.Abs(normalizedRating - rating) > 0.0001)
                 {
                     return BadRequest(new { success = false, message = "Rating must be between 1 and 5 in 0.5 steps" });
+                }
+
+                if (!_configuration.EnableHalfStarRatings && normalizedRating % 1 != 0)
+                {
+                    return BadRequest(new { success = false, message = "Half-star ratings are currently disabled" });
                 }
 
                 var userRating = new UserRating
                 {
                     ItemId = itemId,
                     UserId = userId,
-                    Rating = rating,
+                    Rating = normalizedRating,
                     Note = note,
                     Timestamp = DateTime.UtcNow,
                     UserName = userName ?? "Unknown"

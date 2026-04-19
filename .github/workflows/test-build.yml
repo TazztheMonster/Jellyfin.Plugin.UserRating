@@ -1,0 +1,105 @@
+name: Test Build and Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test-feed
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          cache: true
+
+      - name: Set test version
+        id: version
+        run: |
+          VERSION=1.7.33.0
+          TAG=v1.7.33-test.1
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Update project version
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          sed -i "s#<AssemblyVersion>.*</AssemblyVersion>#<AssemblyVersion>${VERSION}</AssemblyVersion>#" Jellyfin.Plugin.UserRatings.csproj
+          sed -i "s#<FileVersion>.*</FileVersion>#<FileVersion>${VERSION}</FileVersion>#" Jellyfin.Plugin.UserRatings.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build release
+        run: dotnet build -c Release --no-restore
+
+      - name: Package plugin
+        run: |
+          mkdir -p dist
+          cp bin/Release/net8.0/Jellyfin.Plugin.UserRatings.dll dist/
+          cd dist
+          zip -j Jellyfin.Plugin.UserRatings.zip Jellyfin.Plugin.UserRatings.dll
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum dist/Jellyfin.Plugin.UserRatings.zip | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Update manifest for test feed
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          TAG=${{ steps.version.outputs.tag }}
+          CHECKSUM=${{ steps.checksum.outputs.checksum }}
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > manifest.json <<EOF
+          [
+            {
+              "guid": "b8c5d3e7-4f6a-8b9c-1d2e-3f4a5b6c7d8e",
+              "name": "User Ratings",
+              "description": "Allow users to rate and review movies, TV shows, and music. See what other users on your server think!",
+              "overview": "Social rating system for Jellyfin with optional half-star ratings",
+              "owner": "TazztheMonster",
+              "category": "General",
+              "imageUrl": "https://raw.githubusercontent.com/${{ github.repository }}/test-feed/icon.png",
+              "versions": [
+                {
+                  "version": "$VERSION",
+                  "changelog": "Test build with half-star ratings and toggle support",
+                  "targetAbi": "10.9.0.0",
+                  "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/$TAG/Jellyfin.Plugin.UserRatings.zip",
+                  "checksum": "$CHECKSUM",
+                  "timestamp": "$TIMESTAMP"
+                }
+              ]
+            }
+          ]
+          EOF
+
+      - name: Commit manifest and version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json Jellyfin.Plugin.UserRatings.csproj
+          git commit -m "Prepare test feed metadata" || echo "No changes to commit"
+          git push origin HEAD:test-feed
+
+      - name: Create or update test release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Test Build ${{ steps.version.outputs.tag }}
+          files: dist/Jellyfin.Plugin.UserRatings.zip
+          draft: false
+          prerelease: true
+          make_latest: false
