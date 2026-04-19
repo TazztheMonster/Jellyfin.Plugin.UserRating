@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <AssemblyVersion>1.7.33.2</AssemblyVersion>
-    <FileVersion>1.7.33.2</FileVersion>
+    <AssemblyVersion>1.7.33.3</AssemblyVersion>
+    <FileVersion>1.7.33.3</FileVersion>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
