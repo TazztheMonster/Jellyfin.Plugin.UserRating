@@ -21,13 +21,13 @@ namespace Jellyfin.Plugin.UserRatings.Api
 
         [HttpPost("Rate")]
         [Produces(MediaTypeNames.Application.Json)]
-        public ActionResult RateItem([FromQuery] Guid itemId, [FromQuery] Guid userId, [FromQuery] int rating, [FromQuery] string? note, [FromQuery] string? userName)
+        public ActionResult RateItem([FromQuery] Guid itemId, [FromQuery] Guid userId, [FromQuery] double rating, [FromQuery] string? note, [FromQuery] string? userName)
         {
             try
             {
-                if (rating < 1 || rating > 5)
+                if (rating < 1 || rating > 5 || (rating * 2) % 1 != 0)
                 {
-                    return BadRequest(new { success = false, message = "Rating must be between 1 and 5" });
+                    return BadRequest(new { success = false, message = "Rating must be between 1 and 5 in 0.5 steps" });
                 }
 
                 var userRating = new UserRating
@@ -132,7 +132,7 @@ namespace Jellyfin.Plugin.UserRatings.Api
 
                 if (rating == null)
                 {
-                    return Ok(new { success = true, rating = (int?)null });
+                    return Ok(new { success = true, rating = (double?)null });
                 }
 
                 return Ok(new

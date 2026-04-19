@@ -69,16 +69,30 @@
             font-size: 1.9em;
         }
         .star-rating .star {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             color: rgba(255, 255, 255, 0.15);
             transition: color 0.2s, transform 0.15s;
             cursor: pointer;
             filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+            overflow: hidden;
         }
-        .star-rating .star.filled {
+        .star-rating .star::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--fill-width, 0%);
+            overflow: hidden;
             color: #ffd700;
         }
+        .star-rating .star.filled,
+        .star-rating .star.half-filled {
+            color: rgba(255, 255, 255, 0.15);
+        }
         .star-rating .star:hover {
-            color: #ffed4e;
             transform: scale(1.15);
         }
         .rating-prompt {
@@ -228,43 +242,87 @@
     let isNavigating = false; // Flag to prevent refresh during navigation
     let lastNavigationTime = 0; // Track when navigation occurred
 
+    function normalizeRating(rating) {
+        const numericRating = Number(rating) || 0;
+        return Math.max(0, Math.min(5, Math.round(numericRating * 2) / 2));
+    }
+
+    function getStarFillPercent(starNumber, rating) {
+        const normalizedRating = normalizeRating(rating);
+        const diff = normalizedRating - (starNumber - 1);
+
+        if (diff >= 1) {
+            return 100;
+        }
+
+        if (diff >= 0.5) {
+            return 50;
+        }
+
+        return 0;
+    }
+
+    function formatRatingLabel(rating) {
+        const normalizedRating = normalizeRating(rating);
+        return Number.isInteger(normalizedRating) ? String(normalizedRating) : normalizedRating.toFixed(1);
+    }
+
+    function renderRatingStars(rating) {
+        let html = '';
+
+        for (let i = 1; i <= 5; i++) {
+            const fill = getStarFillPercent(i, rating);
+            html += `<span class="star${fill === 100 ? ' filled' : fill === 50 ? ' half-filled' : ''}" style="--fill-width:${fill}%">★</span>`;
+        }
+
+        return html;
+    }
+
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
         container.className = 'star-rating';
-        let currentSelectedRating = rating;
-        
+        let currentSelectedRating = normalizeRating(rating);
+
         for (let i = 1; i <= 5; i++) {
             const star = document.createElement('span');
-            star.className = 'star' + (i <= rating ? ' filled' : '');
+            star.className = 'star';
             star.textContent = '★';
-            star.dataset.rating = i;
-            
+            star.dataset.star = i;
+
             if (interactive) {
-                star.addEventListener('mouseenter', () => onHover(i));
-                star.addEventListener('click', () => {
-                    currentSelectedRating = i;
-                    onClick(i);
+                star.addEventListener('mousemove', (event) => {
+                    const rect = star.getBoundingClientRect();
+                    const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
+                    const hoverRating = (i - 1) + (isLeftHalf ? 0.5 : 1);
+                    onHover(hoverRating);
+                });
+                star.addEventListener('click', (event) => {
+                    const rect = star.getBoundingClientRect();
+                    const isLeftHalf = (event.clientX - rect.left) < (rect.width / 2);
+                    currentSelectedRating = (i - 1) + (isLeftHalf ? 0.5 : 1);
+                    onClick(currentSelectedRating);
                 });
             }
-            
+
             container.appendChild(star);
         }
-        
+
+        updateStarDisplay(container, currentSelectedRating);
+
         if (interactive) {
             container.addEventListener('mouseleave', () => onHover(currentSelectedRating));
         }
-        
+
         return container;
     }
 
     function updateStarDisplay(container, rating) {
         const stars = container.querySelectorAll('.star');
         stars.forEach((star, index) => {
-            if (index < rating) {
-                star.classList.add('filled');
-            } else {
-                star.classList.remove('filled');
-            }
+            const fill = getStarFillPercent(index + 1, rating);
+            star.style.setProperty('--fill-width', `${fill}%`);
+            star.classList.toggle('filled', fill === 100);
+            star.classList.toggle('half-filled', fill === 50);
         });
     }
 
@@ -419,13 +477,18 @@
         
         const starContainer = createStarRating(0, true,
             (rating) => {
-                updateStarDisplay(starContainer, rating);
-                ratingPrompt.style.display = rating === 0 ? 'inline' : 'none';
+                const normalizedRating = normalizeRating(rating);
+                updateStarDisplay(starContainer, normalizedRating);
+                ratingPrompt.style.display = normalizedRating === 0 ? 'inline' : 'none';
+                ratingValueLabel.style.display = normalizedRating === 0 ? 'none' : 'inline';
+                ratingValueLabel.textContent = normalizedRating === 0 ? '' : `${formatRatingLabel(normalizedRating)}/5`;
             },
             (rating) => {
-                currentRating = rating;
-                updateStarDisplay(starContainer, rating);
-                ratingPrompt.style.display = 'none';
+                currentRating = normalizeRating(rating);
+                updateStarDisplay(starContainer, currentRating);
+                ratingPrompt.style.display = currentRating === 0 ? 'inline' : 'none';
+                ratingValueLabel.style.display = currentRating === 0 ? 'none' : 'inline';
+                ratingValueLabel.textContent = currentRating === 0 ? '' : `${formatRatingLabel(currentRating)}/5`;
             }
         );
         starRatingContainer.appendChild(starContainer);
@@ -434,6 +497,11 @@
         ratingPrompt.className = 'rating-prompt';
         ratingPrompt.textContent = 'Select your rating';
         starRatingContainer.appendChild(ratingPrompt);
+
+        const ratingValueLabel = document.createElement('span');
+        ratingValueLabel.className = 'rating-prompt';
+        ratingValueLabel.style.display = 'none';
+        starRatingContainer.appendChild(ratingValueLabel);
         
         starSection.appendChild(starRatingContainer);
         myRatingSection.appendChild(starSection);
@@ -524,6 +592,9 @@
                 currentRating = 0;
                 noteInput.value = '';
                 updateStarDisplay(starContainer, 0);
+                ratingPrompt.style.display = 'inline';
+                ratingValueLabel.style.display = 'none';
+                ratingValueLabel.textContent = '';
                 deleteBtn.style.display = 'none';
                 
                 await displayAllRatings(itemId, container);
@@ -550,9 +621,11 @@
         const myRating = await loadMyRating(itemId);
         console.log('[UserRatings] → My rating loaded:', myRating);
         if (myRating && myRating.rating) {
-            currentRating = myRating.rating;
-            updateStarDisplay(starContainer, myRating.rating);
+            currentRating = normalizeRating(myRating.rating);
+            updateStarDisplay(starContainer, currentRating);
             ratingPrompt.style.display = 'none';
+            ratingValueLabel.style.display = 'inline';
+            ratingValueLabel.textContent = `${formatRatingLabel(currentRating)}/5`;
             noteInput.value = myRating.note || '';
             // Update character counter
             const length = noteInput.value.length;
@@ -630,8 +703,8 @@
             
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
-            const ratingValue = rating.rating || rating.Rating || 0;
-            stars.textContent = '★'.repeat(ratingValue) + '☆'.repeat(5 - ratingValue);
+            const ratingValue = normalizeRating(rating.rating || rating.Rating || 0);
+            stars.innerHTML = `${renderRatingStars(ratingValue)} <span class="rating-item-value">${formatRatingLabel(ratingValue)}/5</span>`;
             leftSide.appendChild(stars);
             
             header.appendChild(leftSide);
